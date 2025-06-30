@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prelims Master Quiz</title>
+<style>
+body { font-family:sans-serif; margin:0; background:#222; color:#fff; }
+.question { background:#333; margin:1rem; padding:1rem; border-radius:5px; }
+.options button { width:100%; margin:0.3rem 0; padding:0.5rem; }
+.summary-box { background:#444; margin:1rem; padding:1rem; display:none; }
+input,select { padding:0.5rem; margin:0.5rem; width:calc(100% - 1rem);}
+button.submit-btn { background:#00c2c2; color:#fff; padding:0.5rem 1rem; margin:1rem;}
+</style>
+</head>
+<body>
+<h2>Prelims Master Quiz</h2>
+<input type="text" id="username" placeholder="Enter your Name" required/>
+<select id="gender" required>
+  <option value="">Select Gender</option>
+  <option value="Male">Male</option>
+  <option value="Female">Female</option>
+  <option value="Other">Other</option>
+</select>
+<input type="text" id="contact" placeholder="Enter Contact Number" required/>
+<input type="text" id="batch" placeholder="Enter Batch Number" required/>
+<div id="quiz"></div>
+<div>
+<button class="submit-btn" onclick="submitQuiz()">Submit Quiz</button>
+</div>
+<div id="summaryBox" class="summary-box"></div>
+
+<script>
+const quizContainer=document.getElementById("quiz");
+const summaryBox=document.getElementById("summaryBox");
+let quizData=[];
+let userAnswers=[];
+let isSubmitted=false;
+
+fetch("YOUR_QUESTIONS_URL")
+.then(response=>response.json())
+.then(data=>{
+  quizData=data;
+  userAnswers=new Array(quizData.length).fill(null);
+  loadQuiz();
+});
+
+function loadQuiz(){
+  quizContainer.innerHTML="";
+  quizData.forEach((q,idx)=>{
+    const qDiv=document.createElement("div");
+    qDiv.className="question";
+    qDiv.innerHTML="<h4>"+(idx+1)+". "+q.question+"</h4>";
+    const optsDiv=document.createElement("div");
+    q.options.forEach((opt,i)=>{
+      const btn=document.createElement("button");
+      btn.textContent=opt;
+      btn.onclick=()=>{
+        if(isSubmitted)return;
+        const siblings=btn.parentNode.querySelectorAll("button");
+        siblings.forEach(s=>s.className="");
+        btn.className="selected";
+        userAnswers[idx]=i;
+      };
+      optsDiv.appendChild(btn);
+    });
+    qDiv.appendChild(optsDiv);
+    quizContainer.appendChild(qDiv);
+  });
+}
+
+function submitQuiz(){
+  const name=document.getElementById("username").value.trim();
+  const gender=document.getElementById("gender").value.trim();
+  const contact=document.getElementById("contact").value.trim();
+  const batch=document.getElementById("batch").value.trim();
+  if(!name || !gender || !contact || !batch){
+    alert("Please fill all fields before submitting.");
+    return;
+  }
+
+  isSubmitted=true;
+  let correct=0,incorrect=0;
+  quizData.forEach((q,i)=>{
+    const qDiv=quizContainer.children[i];
+    const btns=qDiv.querySelectorAll("button");
+    btns.forEach((b,idx)=>{
+      if(idx===q.answer)b.classList.add("correct");
+      else if(userAnswers[i]===idx)b.classList.add("incorrect");
+      b.disabled=true;
+    });
+    if(userAnswers[i]!=null){
+      if(userAnswers[i]===q.answer)correct++;
+      else incorrect++;
+    }
+  });
+  const totalMarks=(correct*2 - incorrect*0.66).toFixed(2);
+  summaryBox.style.display="block";
+  summaryBox.innerHTML=`
+  <h3>Summary</h3>
+  <p>Correct: ${correct}</p>
+  <p>Incorrect: ${incorrect}</p>
+  <p>Total Marks: ${totalMarks}</p>
+  `;
+
+  const payload={
+    name:name,
+    gender:gender,
+    contact:contact,
+    batch:batch,
+    answers:userAnswers,
+    correct:correct,
+    incorrect:incorrect,
+    totalMarks:totalMarks
+  };
+  fetch("YOUR_RESPONSES_URL",{
+    method:"POST",
+    body:JSON.stringify(payload),
+    headers:{"Content-Type":"application/json"}
+  })
+  .then(r=>r.text())
+  .then(res=>console.log("Submitted:",res));
+}
+</script>
+</body>
+</html>
